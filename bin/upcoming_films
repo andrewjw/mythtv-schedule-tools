@@ -1,0 +1,89 @@
+#!/usr/bin/python3
+
+from datetime import datetime
+import pickle
+import os
+import sys
+
+import MySQLdb
+
+channels = None
+
+con = MySQLdb.connect(host=sys.argv[1], user="mythtv", passwd=sys.argv[2], db="mythconverg")
+
+if os.path.exists("seen.pickle"):
+    seen = pickle.load(open("seen.pickle", "rb"))
+else:
+    seen = set()
+
+def get_showings():
+    c = con.cursor()
+    c.execute("select chanid, starttime, title, subtitle, description, airdate from program where category='Film'")
+
+    showings = []
+    for row in c:
+        chanid, starttime, title, subtitle, description, airdate = row
+
+        if airdate == 0:
+            if len(description) > 5 and description[4] == "." and description[:2] in ("19", "20"):
+                airdate = int(description[:4])
+            elif len(description) > 6 and description[0] == "(" and description[5] == ")" and description[1:3] in ("19", "20"):
+                airdate = int(description[1:5])
+            elif len(subtitle) > 6 and subtitle[0] == "(" and subtitle[5] == ")" and subtitle[1:3] in ("19", "20"):
+                airdate = int(subtitle[1:5])
+
+        showings.append(((title, airdate), (chanid, ) + channel_name(chanid) + (starttime, subtitle, description)))
+    return showings
+
+def channel_name(chanid):
+    global channels
+    if channels is None:
+        c = con.cursor()
+        c.execute("select chanid, channum, name from channel")
+        channels = {}
+        for row in c:
+            channels[row[0]] = (row[1], row[2])
+    return channels.get(chanid, str(chanid))
+
+def unique(showings):
+    uniques = {}
+    for s in showings:
+        if s[0] not in uniques:
+            uniques[s[0]] = []
+        uniques[s[0]].append(s[1])
+    return uniques
+
+def remove_seen(uniques):
+    fresh = {}
+    for k in uniques:
+        if k not in seen:
+            fresh[k] = uniques[k]
+            seen.add(k)
+    pickle.dump(fresh, open("seen.pickle", "wb"))
+    return fresh
+
+def dump(fresh):
+    for k in sorted(fresh.keys()):
+        showings = sorted(fresh[k], key=lambda s: s[1])
+        print("%s (%s, %s, %i showings)" % (k[0], k[1], showings[0][2], len(showings)))
+        if showings[0][4] != "":
+            print(showings[0][4])
+        if showings[0][5] != "":
+            print(showings[0][5])
+        print()
+
+def main():
+    start = datetime.now()
+    showings = get_showings()
+    showings_end = datetime.now()
+    print("Got", len(showings), "showings in", showings_end - start)
+    uniques = unique(showings)
+    uniques_end = datetime.now()
+    print("Got", len(uniques), "unique films in", uniques_end - showings_end)
+    fresh = remove_seen(uniques)
+    fresh_end = datetime.now()
+    print("Got", len(fresh), "fresh films in", fresh_end - uniques_end)
+    dump(fresh)
+
+if __name__ == "__main__":
+    main()
