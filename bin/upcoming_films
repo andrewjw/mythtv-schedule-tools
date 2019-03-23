@@ -18,7 +18,7 @@ else:
 
 def get_showings():
     c = con.cursor()
-    c.execute("select chanid, starttime, title, subtitle, description, airdate from program where category='Film'")
+    c.execute("select chanid, starttime, title, subtitle, description, airdate from program where category='Film' and airdate > now()")
 
     showings = []
     for row in c:
