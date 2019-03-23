@@ -76,14 +76,16 @@ def main():
     start = datetime.now()
     showings = get_showings()
     showings_end = datetime.now()
-    print("Got", len(showings), "showings in", showings_end - start)
     uniques = unique(showings)
     uniques_end = datetime.now()
-    print("Got", len(uniques), "unique films in", uniques_end - showings_end)
     fresh = remove_seen(uniques)
     fresh_end = datetime.now()
-    print("Got", len(fresh), "fresh films in", fresh_end - uniques_end)
     dump(fresh)
+
+    print("Got", len(showings), "showings in", showings_end - start)
+    print("Got", len(uniques), "unique films in", uniques_end - showings_end)
+    print("Got", len(fresh), "fresh films in", fresh_end - uniques_end)
+    print(len(seen), "previously seen films")
 
 if __name__ == "__main__":
     main()
