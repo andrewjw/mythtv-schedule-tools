@@ -12,7 +12,7 @@ channels = None
 con = MySQLdb.connect(host=sys.argv[1], user="mythtv", passwd=sys.argv[2], db="mythconverg")
 
 if os.path.exists("seen.pickle"):
-    seen = pickle.load(open("seen.pickle", "rb"))
+    seen = set(pickle.load(open("seen.pickle", "rb")))
 else:
     seen = set()
 
@@ -59,7 +59,7 @@ def remove_seen(uniques):
         if k not in seen:
             fresh[k] = uniques[k]
             seen.add(k)
-    pickle.dump(fresh, open("seen.pickle", "wb"))
+    pickle.dump(seen, open("seen.pickle", "wb"))
     return fresh
 
 def dump(fresh):
@@ -78,12 +78,14 @@ def main():
     showings_end = datetime.now()
     uniques = unique(showings)
     uniques_end = datetime.now()
-    fresh = remove_seen(uniques)
+    modern = dict([(k, v) for (k, v) in uniques.items() if k[1] > 2000 or k[1] == 0])
+    fresh = remove_seen(modern)
     fresh_end = datetime.now()
     dump(fresh)
 
     print("Got", len(showings), "showings in", showings_end - start)
     print("Got", len(uniques), "unique films in", uniques_end - showings_end)
+    print("Got", len(modern), "modern films")
     print("Got", len(fresh), "fresh films in", fresh_end - uniques_end)
     print(len(seen) - len(fresh), "previously seen films")
 
