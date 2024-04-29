@@ -43,7 +43,7 @@ def channel_name(chanid):
         channels = {}
         for row in c:
             channels[row[0]] = (row[1], row[2])
-    return channels.get(chanid, str(chanid))
+    return channels.get(chanid, (str(chanid), str(chanid)))
 
 def unique(showings):
     uniques = {}
