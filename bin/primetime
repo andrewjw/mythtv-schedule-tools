@@ -18,7 +18,7 @@ else:
 
 def get_showings():
     c = con.cursor()
-    c.execute("select chanid, starttime, title, subtitle, description from program join channel using (chanid) where hour(starttime) >= 19 and hour(starttime) < 23 and starttime > now() and channel.channum <= 38 and channel.visible=1")
+    c.execute("select chanid, starttime, title, subtitle, description from program join channel using (chanid) where hour(starttime) >= 19 and hour(starttime) < 23 and starttime > now() and channel.channum <= 99 and channel.visible=1")
 
     showings = []
     for row in c:
