@@ -1,0 +1,102 @@
+#!/usr/bin/python3
+
+import curses
+from datetime import datetime
+from typing import List
+from xml.dom.minidom import Node
+from xml.dom.minidom import parseString
+
+import requests
+
+BASE_URL = "http://192.168.1.12:6544"
+
+def main():
+    r = requests.get(BASE_URL + "/Dvr/GetUpcomingList?Count=100")
+
+    doc = parseString(r.content)
+
+    try:
+        win = curses.initscr()
+        for program in doc.getElementsByTagName("Program"):
+            recordid = get_text_from_tag_name(program, "RecordId")
+            channel = program.getElementsByTagName("Channel")[0]
+            encoder = get_text_from_tag_name(program, "EncoderName")
+            starttime = datetime.strptime(get_text_from_tag_name(program, "StartTime"), "%Y-%m-%dT%H:%M:%SZ")
+            endtime = datetime.strptime(get_text_from_tag_name(program, "EndTime"), "%Y-%m-%dT%H:%M:%SZ")
+
+            win.erase()
+
+            win.addstr(0, 0, starttime.date().strftime("%A %Y-%m-%d"))
+            win.addstr(1, 0, f"{get_text_from_tag_name(program, 'Title')}: {get_text_from_tag_name(program, 'SubTitle')}")
+            win.addstr(2, 0, f"{get_text_from_tag_name(channel, 'ChannelName')} {starttime.strftime('%H:%M')} ({int((endtime - starttime).total_seconds() / 60)}m) {encoder}")
+
+            desc = word_wrap(get_text_from_tag_name(program, 'Description', ""))
+            i = 4
+            for line in desc:
+                win.addstr(i, 0, line)
+                i += 1
+
+            win.addstr(i + 1, 0, "Space to keep schedule, s to not record this showing, n to never record this episode")
+
+            while True:
+                c = input_char(win)
+
+                if c == " ":
+                    break
+                elif c == "s":
+                    dont_record_schedule(get_text_from_tag_name(channel, 'ChanId'), starttime, False)
+                    break
+                elif c == "n":
+                    dont_record_schedule(get_text_from_tag_name(channel, 'ChanId'), starttime, True)
+                    break
+    finally:
+        curses.endwin()
+
+def dont_record_schedule(chanid, starttime, never_record):
+    r = requests.post(BASE_URL + f"/Dvr/AddDontRecordSchedule?ChanId={chanid}&StartTime={starttime.strftime('%Y-%m-%dT%H:%M:%SZ')}&NeverRecord={never_record}")
+    r.raise_for_status()
+
+def input_char(win):
+    while True:
+        ch = win.getch()
+        if ch in range(32, 127):
+            break
+        time.sleep(0.05)
+    return chr(ch)
+
+def get_text(nodelist: List[Node]) -> str:
+    rc = []
+    for node in nodelist:
+        if node.nodeType == node.TEXT_NODE:
+            rc.append(node.data)
+    return ''.join(rc)
+
+
+def get_text_from_tag_name(parent: Node, tag_name: str, default=None) -> str:
+    try:
+        return get_text(parent.getElementsByTagName(tag_name)[0].childNodes)
+    except IndexError:
+        if default is None:
+            raise
+        return default
+
+def word_wrap(text: str, length=80) -> List[str]:
+    lines = []
+    line = ""
+    for word in text.split(" "):
+        if len(word) > length:
+            if line != "":
+                lines.append(line)
+            lines.append(word)
+            line = ""
+        elif len(line) + len(word) + 1 > length:
+            lines.append(line)
+            line = word
+        elif len(line) > 0:
+            line = line + " " + word
+        else:
+            line = word
+    return lines
+
+if __name__ == "__main__":
+    main()
